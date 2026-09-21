@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>File Detectives</title>
+<meta name="description" content="File Detectives: an interactive lesson about file sizes and file formats.">
+<meta name="theme-color" content="#132347">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%8E%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;700&family=Unbounded:wght@500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -185,7 +188,7 @@ summary{cursor:pointer;font-weight:500;min-height:32px}
 
 /* report */
 .report{border:2px solid var(--ink);border-radius:8px;padding:16px 18px;margin:14px 0}
-.report h3{font-size:1.15rem;font-weight:700}
+.report h3{font-size:1.4rem;line-height:1.25;font-weight:700}
 .report pre{font:500 .85rem/1.55 var(--f-mono);white-space:pre-wrap;word-break:break-word;margin:12px 0 0}
 .why{width:100%;min-height:84px;font:inherit;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:8px;padding:.6rem .8rem}
 .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
@@ -196,6 +199,7 @@ summary{cursor:pointer;font-weight:500;min-height:32px}
 </style>
 </head>
 <body>
+<noscript><p style="padding:16px;font:16px sans-serif">This lesson needs JavaScript. Please turn it on in your browser. / Для урока нужен JavaScript. Включи его в браузере.</p></noscript>
 <div class="wrap">
 
 <header class="hero">
@@ -206,6 +210,10 @@ summary{cursor:pointer;font-weight:500;min-height:32px}
     <div>
       <label for="name">Your name <span class="ru">Твоё имя</span></label>
       <input id="name" type="text" maxlength="40" autocomplete="off">
+    </div>
+    <div>
+      <label for="cls">Class <span class="ru">Класс</span></label>
+      <input id="cls" type="text" maxlength="8" autocomplete="off" placeholder="7A" style="width:6.5rem">
     </div>
     <button id="ruToggle" class="btn ghost" type="button" aria-pressed="true">Русские подсказки: вкл</button>
   </div>
@@ -360,9 +368,11 @@ summary{cursor:pointer;font-weight:500;min-height:32px}
       <pre id="reportText"></pre>
     </div>
     <div class="actions">
+      <button class="btn" id="send" type="button" hidden>Send to my teacher<span class="ru">Отправить учителю</span></button>
       <button class="btn" id="copy" type="button">Copy report<span class="ru">Скопировать отчёт</span></button>
       <button class="btn ghost" id="again" type="button">Play again<span class="ru">Пройти заново</span></button>
     </div>
+    <p class="small" id="sendMsg" role="status"></p>
     <p class="small" id="copyMsg" role="status"></p>
   </div>
 </section>
@@ -375,6 +385,22 @@ summary{cursor:pointer;font-weight:500;min-height:32px}
 'use strict';
 var $=function(s,r){return (r||document).querySelector(s);};
 var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));};
+/* ===== TEACHER SETTINGS =====
+   Paste your Google Form "pre-filled link" between the quotes below.
+   The form must have 5 questions in this order: Name, Class, Points, Rank, Report.
+   Leave it empty and the "Send to my teacher" button stays hidden. */
+var FORM_LINK='https://docs.google.com/forms/d/e/1FAIpQLSezGHw5R0zIF13NMyLwqP1o3L077AVbf9RSYA-3jKLe3MWkSA/viewform?usp=pp_url&entry.1781873208=&entry.1275674144=&entry.663471948=&entry.19991263=&entry.551992072=';
+function parseFormLink(link){
+  try{
+    if(!link)return null;
+    var u=new URL(link),ids=[];
+    u.searchParams.forEach(function(v,k){if(k.indexOf('entry.')===0)ids.push(k);});
+    if(ids.length!==5)return null;
+    return {url:u.origin+u.pathname.replace(/\/viewform\/?$/,'/formResponse'),name:ids[0],cls:ids[1],points:ids[2],rank:ids[3],report:ids[4]};
+  }catch(e){return null;}
+}
+var SEND=parseFormLink(FORM_LINK);
+var t0=Date.now(),sentOnce=false,leaving=false;
 var W=1024,H=600,MAX=140;
 var FORMATS=['bmp','png','jpg'];
 var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -396,9 +422,17 @@ ruBtn.addEventListener('click',function(){
 
 /* ---------- score & missions ---------- */
 var score=0,awarded={};
+var mp={1:0,2:0,3:0,4:0,5:0};
+function missionOf(key){
+  if(key==='m1')return 1;
+  if(key==='pred'||key.indexOf('q2')===0)return 2;
+  if(key.indexOf('calc')===0||key==='q3')return 3;
+  if(key==='q4')return 4;
+  return 5;
+}
 var scoreEl=$('#score');
 function award(key,pts){
-  if(awarded[key])return;awarded[key]=true;score+=pts;
+  if(awarded[key])return;awarded[key]=true;score+=pts;mp[missionOf(key)]+=pts;
   scoreEl.textContent=score;
   var p=scoreEl.parentElement;p.classList.remove('bump');void p.offsetWidth;p.classList.add('bump');
   buildReport();
@@ -802,7 +836,10 @@ function buildReport(){
   var lines=[
     'File Detectives: case report',
     'Name: '+name,
+    'Class: '+(($('#cls').value||'').trim()||'—'),
     'Points: '+score+' / '+MAX+' ('+r.en+')',
+    'Points by mission: M1 '+mp[1]+'/10, M2 '+mp[2]+'/40, M3 '+mp[3]+'/30, M4 '+mp[4]+'/10, M5 '+mp[5]+'/50',
+    'Time: about '+Math.max(1,Math.round((Date.now()-t0)/60000))+' min',
     'Prediction for Picture B (smallest to biggest): '+(pred.length?pred.map(function(f){return '.'+f;}).join(' < '):'—')+(labStarted?(predOk?' (correct)':' (not exact)'):''),
     'Picture A: '+kbList('A'),
     'Picture B: '+kbList('B'),
@@ -822,7 +859,51 @@ $('#copy').addEventListener('click',function(){
     }else fail();
   }catch(e){fail();}
 });
-$('#again').addEventListener('click',function(){location.reload();});
+$('#again').addEventListener('click',function(){leaving=true;location.reload();});
+
+$('#cls').addEventListener('input',buildReport);
+
+/* ---------- send to teacher (Google Form) ---------- */
+var sendBtn=$('#send');
+if(SEND)sendBtn.hidden=false;
+window.addEventListener('beforeunload',function(e){
+  if(SEND&&score>0&&!sentOnce&&!leaving){e.preventDefault();e.returnValue='';}
+});
+sendBtn.addEventListener('click',function(){
+  var msg=$('#sendMsg');
+  var nameEl=$('#name'),clsEl=$('#cls'),whyEl=$('#why');
+  var name=(nameEl.value||'').trim(),cls=(clsEl.value||'').trim();
+  if(!name||!cls){
+    msg.textContent='Type your name and class at the top of the page first. / Сначала впиши имя и класс вверху страницы.';
+    (name?clsEl:nameEl).focus();
+    return;
+  }
+  if((whyEl.value||'').trim().length<10){
+    msg.textContent='Write your explanation first (at least one sentence). / Сначала напиши объяснение (хотя бы одно предложение).';
+    whyEl.focus();
+    return;
+  }
+  buildReport();
+  var p=new URLSearchParams();
+  p.append(SEND.name,name);
+  p.append(SEND.cls,cls);
+  p.append(SEND.points,String(score));
+  p.append(SEND.rank,rankOf().en);
+  p.append(SEND.report,$('#reportText').textContent);
+  sendBtn.disabled=true;
+  msg.textContent='Sending… / Отправляю…';
+  fetch(SEND.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()})
+    .then(function(){
+      sentOnce=true;
+      msg.textContent='Sent to your teacher. / Отправлено учителю.';
+      sendBtn.textContent='Send again / Отправить ещё раз';
+      sendBtn.disabled=false;
+    })
+    .catch(function(){
+      msg.textContent='Could not send. Check the internet and try again, or show your screen to the teacher. / Не удалось отправить. Проверь интернет и попробуй снова или покажи экран учителю.';
+      sendBtn.disabled=false;
+    });
+});
 
 /* ---------- init ---------- */
 buildBars('A');buildBars('B');renderPred();buildReport();
