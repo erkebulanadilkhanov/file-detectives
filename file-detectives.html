@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>File Detectives</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;700&family=Unbounded:wght@500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#EDF2F9; --grid:rgba(19,35,71,.06); --ink:#132347; --muted:#56637F;
+  --card:#FFFFFF; --line:#C7D3E6; --accent:#0E8A81; --accent-ink:#FFFFFF;
+  --hi:#FFD23F; --ok:#17803F; --okbg:#E1F4E8; --bad:#B8371F; --badbg:#FCE8E2;
+  --c-bmp:#132347; --c-png:#4B6FD6; --c-jpg:#0E8A81; --barbg:#E1E8F3;
+  --f-head:"Unbounded","Trebuchet MS",system-ui,sans-serif;
+  --f-body:"Onest",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1630; --grid:rgba(150,180,255,.07); --ink:#E8EEFB; --muted:#9DABC9;
+    --card:#152048; --line:#2B3B6A; --accent:#2CC4B8; --accent-ink:#06211F;
+    --ok:#4CD08A; --okbg:#123A2A; --bad:#FF8466; --badbg:#3F1E1A;
+    --c-bmp:#E8EEFB; --c-png:#8CA8F7; --c-jpg:#2CC4B8; --barbg:#1F2D5A;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1630; --grid:rgba(150,180,255,.07); --ink:#E8EEFB; --muted:#9DABC9;
+  --card:#152048; --line:#2B3B6A; --accent:#2CC4B8; --accent-ink:#06211F;
+  --ok:#4CD08A; --okbg:#123A2A; --bad:#FF8466; --badbg:#3F1E1A;
+  --c-bmp:#E8EEFB; --c-png:#8CA8F7; --c-jpg:#2CC4B8; --barbg:#1F2D5A;
+}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 76px);height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{
+  margin:0;min-height:100%;
+  background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px;
+  color:var(--ink);
+  font:400 17px/1.55 var(--f-body);
+}
+.wrap{max-width:820px;margin:0 auto;padding:0 16px 72px}
+.ru{display:block;color:var(--muted);font-weight:400;font-size:.86em;line-height:1.4;margin-top:.15em}
+body.no-ru .ru{display:none}
+h1,h2,h3{font-family:var(--f-head);margin:0}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* hero */
+.hero{padding:34px 0 18px}
+.hero h1{font-size:clamp(30px,6vw,48px);line-height:1.08;font-weight:700;letter-spacing:-.02em}
+.hero .lead{font-size:1.1rem;max-width:34em;margin:.8rem 0 0}
+.who{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-top:20px}
+.who label{font-weight:500;display:block}
+.who input{font:inherit;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:8px;padding:.55rem .8rem;min-height:44px;width:min(100%,16rem);margin-top:4px}
+.who input:focus-visible{border-color:var(--accent)}
+
+/* buttons */
+.btn{font:700 1rem var(--f-body);background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:.7rem 1.2rem;min-height:44px;cursor:pointer;text-align:left}
+.btn .ru{color:inherit;opacity:.85}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:not(:disabled):hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--line);font-weight:500}
+.btn.next{margin-top:18px}
+
+/* tracker */
+.tracker{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--bg) 90%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);margin:0 -16px 22px;padding:10px 16px}
+.tracker .in{display:flex;align-items:center;gap:12px;justify-content:space-between}
+.tracker ol{list-style:none;margin:0;padding:0;display:flex;gap:6px;flex-wrap:wrap}
+.tracker li{display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--muted)}
+.tracker li .n{font:700 .8rem var(--f-mono);width:1.7rem;height:1.7rem;border-radius:50%;display:grid;place-items:center;border:2px solid var(--line)}
+.tracker li[data-state="cur"]{color:var(--ink);font-weight:700}
+.tracker li[data-state="cur"] .n{border-color:var(--ink);background:var(--hi);color:#132347}
+.tracker li[data-state="done"] .n{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tracker li[data-state="done"]{color:var(--ink)}
+.pts{font:700 1rem var(--f-mono);white-space:nowrap;padding:.2rem .6rem;border-radius:8px;border:2px solid var(--ink)}
+.pts.bump{animation:bump .45s ease}
+@keyframes bump{40%{transform:scale(1.15);background:var(--hi);color:#132347}}
+@media (max-width:640px){.tracker li:not([data-state="cur"]) .lbl{display:none}}
+
+/* missions */
+.mission{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--accent);border-radius:6px;padding:22px 22px 26px;margin-bottom:22px}
+.mission.locked{border-left-color:var(--line);background:transparent}
+.mhead{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.num{font:700 1rem var(--f-mono);background:var(--ink);color:var(--bg);width:2.4rem;height:2.4rem;border-radius:50%;display:grid;place-items:center;flex:none}
+.mission.locked .num{background:var(--line);color:var(--muted)}
+.mhead h2{font-size:1.25rem;line-height:1.2;font-weight:700}
+.mhead h2 .ru{font-family:var(--f-body)}
+.mission.locked .mhead h2{color:var(--muted)}
+.lockmsg{display:none;color:var(--muted);margin:0}
+.mission.locked .lockmsg{display:block}
+.mission.locked .body{display:none}
+.body p{margin:.6em 0}
+.small{font-size:.88rem;color:var(--muted)}
+code,.mono{font-family:var(--f-mono)}
+
+/* prediction */
+.predict{display:grid;gap:18px;margin-top:14px}
+@media (min-width:660px){.predict{grid-template-columns:auto 1fr;align-items:start}}
+.thumb{width:100%;max-width:320px;height:auto;border-radius:4px;border:1px solid var(--line);display:block}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.slot{border:2px dashed var(--line);border-radius:8px;min-height:92px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;font-size:.82rem;color:var(--muted);line-height:1.25}
+.slot.filled{border:2px solid var(--ink);color:var(--ink)}
+.slot .lab .ru{font-size:.9em}
+.pool{display:flex;gap:10px;margin:14px 0}
+.chip{font:700 1.05rem var(--f-mono);background:var(--card);color:var(--ink);border:2px solid var(--ink);border-radius:8px;padding:.5rem 1rem;min-height:44px;cursor:pointer}
+.chip:disabled{opacity:.35;cursor:default}
+.chip:not(:disabled):hover{background:var(--hi);color:#132347}
+.msg{margin:12px 0 0;padding:10px 12px;border-radius:6px;background:var(--okbg)}
+
+/* lab */
+.pics{display:grid;gap:22px;margin:16px 0}
+@media (min-width:720px){.pics{grid-template-columns:1fr 1fr}}
+.pic{margin:0}
+.pic canvas{width:100%;height:auto;display:block;border-radius:4px;border:1px solid var(--line);background:#fff}
+.pic figcaption{font-weight:700;margin:8px 0}
+.up{display:block;margin-top:10px;font-size:.88rem}
+.up input{display:block;margin-top:4px;max-width:100%}
+.row{display:grid;grid-template-columns:3.4rem 1fr;grid-template-areas:"ext val" "track track";gap:4px 10px;align-items:center;margin:12px 0}
+.row .ext{grid-area:ext;font:700 1rem var(--f-mono)}
+.row .track{grid-area:track}
+.row .val{grid-area:val;text-align:right;font-size:.88rem;color:var(--muted)}
+.row .sz{font:700 1rem var(--f-mono);color:var(--ink)}
+.row .ratio{margin-left:6px}
+@media (min-width:460px){
+  .row{grid-template-columns:3.4rem 1fr 11.5rem;grid-template-areas:"ext track val"}
+}
+.track{background:var(--barbg);height:22px;border-radius:4px;overflow:hidden}
+.fill{height:100%;width:0;background:var(--c-bmp);transition:width .8s cubic-bezier(.2,.7,.2,1)}
+.fill[data-f="png"]{background:var(--c-png)}
+.fill[data-f="jpg"]{background:var(--c-jpg)}
+.quality{margin:8px 0 4px;padding:12px 14px;border:1px dashed var(--line);border-radius:6px}
+.quality input[type=range]{width:100%;max-width:320px;accent-color:var(--accent)}
+.compare{display:grid;gap:10px;grid-template-columns:1fr;margin:16px 0}
+.cmp{padding:10px 12px;border-radius:6px;background:var(--badbg)}
+.cmp.win{background:var(--okbg)}
+.cmp .chips{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0}
+.cmp .chips span{font:700 .95rem var(--f-mono);border:2px solid var(--ink);border-radius:6px;padding:.1rem .5rem;background:var(--card)}
+
+/* quiz */
+.quiz{margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line)}
+.quiz .q{font-weight:700;margin:0 0 10px}
+.quiz .q .ru{font-weight:400}
+.opts{display:grid;gap:10px}
+.opt{font:inherit;text-align:left;background:var(--card);color:var(--ink);border:2px solid var(--line);border-radius:8px;padding:.65rem .9rem;min-height:44px;cursor:pointer}
+.opt:not(:disabled):hover{border-color:var(--ink)}
+.opt:disabled{cursor:default}
+.opt.ok{border-color:var(--ok);background:var(--okbg)}
+.opt.bad{border-color:var(--bad);background:var(--badbg);opacity:.85}
+.fb:empty{display:none}
+.fb{margin-top:10px;padding:10px 12px;border-radius:6px}
+.fb.good{background:var(--okbg)}
+.fb.try{background:var(--badbg)}
+.gated{opacity:.5}
+.gatemsg{margin:0 0 8px;color:var(--muted)}
+
+/* calc */
+.calc{display:grid;gap:12px;margin:14px 0}
+.calcrow{display:grid;grid-template-columns:1fr;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:6px}
+@media (min-width:600px){.calcrow{grid-template-columns:1fr auto auto;align-items:center;gap:12px}}
+.calcrow input{font:700 1.05rem var(--f-mono);color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:8px;padding:.5rem .7rem;min-height:44px;width:100%;max-width:11rem}
+.calcrow.done{background:var(--okbg);border-color:var(--ok)}
+.calcrow.off{opacity:.45}
+.calcrow .st{font-size:.85rem;min-height:1.2em;grid-column:1/-1}
+details{margin:10px 0}
+summary{cursor:pointer;font-weight:500;min-height:32px}
+
+/* text lab */
+.tx{width:100%;font:inherit;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:8px;padding:.6rem .8rem;min-height:44px}
+.checks{display:flex;flex-wrap:wrap;gap:10px 18px;margin:12px 0}
+.checks label{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}
+.checks input{width:20px;height:20px;accent-color:var(--accent)}
+.files{display:grid;gap:14px;margin:12px 0}
+@media (min-width:660px){.files{grid-template-columns:1fr 1fr}}
+.file{border:2px solid var(--ink);border-radius:8px;padding:12px 14px;min-width:0}
+.file .fn{font:700 .95rem var(--f-mono)}
+.file .big{font:700 2rem var(--f-mono);line-height:1.2}
+.file .big small{font-size:.9rem;font-weight:500;color:var(--muted)}
+.file pre{margin:8px 0 0;font:500 .78rem/1.45 var(--f-mono);white-space:pre-wrap;word-break:break-word;background:var(--barbg);padding:8px;border-radius:4px}
+.rendered{margin-top:8px;padding:8px 10px;border:1px dashed var(--line);border-radius:6px;min-height:2.6em;overflow-wrap:anywhere}
+
+/* report */
+.report{border:2px solid var(--ink);border-radius:8px;padding:16px 18px;margin:14px 0}
+.report h3{font-size:1.15rem;font-weight:700}
+.report pre{font:500 .85rem/1.55 var(--f-mono);white-space:pre-wrap;word-break:break-word;margin:12px 0 0}
+.why{width:100%;min-height:84px;font:inherit;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:8px;padding:.6rem .8rem}
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+
+@media (prefers-reduced-motion: reduce){
+  .fill{transition:none}.pts.bump{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>File Detectives</h1>
+  <p class="lead">One picture. Three files. Three different sizes. Your job: find out why.
+    <span class="ru">Одна картинка. Три файла. Три разных размера. Твоя задача — выяснить почему.</span></p>
+  <div class="who">
+    <div>
+      <label for="name">Your name <span class="ru">Твоё имя</span></label>
+      <input id="name" type="text" maxlength="40" autocomplete="off">
+    </div>
+    <button id="ruToggle" class="btn ghost" type="button" aria-pressed="true">Русские подсказки: вкл</button>
+  </div>
+</header>
+
+<nav class="tracker" id="tracker" aria-label="Progress">
+  <div class="in">
+    <ol>
+      <li><span class="n">1</span><span class="lbl">Predict</span></li>
+      <li><span class="n">2</span><span class="lbl">Lab</span></li>
+      <li><span class="n">3</span><span class="lbl">Formula</span></li>
+      <li><span class="n">4</span><span class="lbl">Text</span></li>
+      <li><span class="n">5</span><span class="lbl">Send it</span></li>
+      <li><span class="n">6</span><span class="lbl">Report</span></li>
+    </ol>
+    <div class="pts" aria-live="polite"><span id="score">0</span> / 140</div>
+  </div>
+</nav>
+
+<main>
+
+<!-- MISSION 1 -->
+<section class="mission" id="m1">
+  <div class="mhead"><span class="num">1</span><h2>Predict<span class="ru">Сделай прогноз</span></h2></div>
+  <div class="body">
+    <p>Picture B is full of tiny details, like a photo. You will save it as .bmp, .png and .jpg. Before you test it, make a prediction: tap the formats in order, from the smallest file to the biggest file.
+      <span class="ru">Картинка B полна мелких деталей, как фотография. Ты сохранишь её как .bmp, .png и .jpg. Сначала сделай прогноз: нажимай на форматы по порядку — от самого маленького файла к самому большому.</span></p>
+    <div class="predict">
+      <canvas id="thumbB" class="thumb" width="320" height="188" role="img" aria-label="Picture B, a colourful detailed picture"></canvas>
+      <div>
+        <div class="slots" id="slots"></div>
+        <div class="pool" id="pool"></div>
+        <button class="btn" id="lock" type="button" disabled>Lock in my prediction<span class="ru">Зафиксировать прогноз</span></button>
+        <div id="lockMsg"></div>
+      </div>
+    </div>
+  </div>
+  <p class="lockmsg"></p>
+</section>
+
+<!-- MISSION 2 -->
+<section class="mission" id="m2">
+  <div class="mhead"><span class="num">2</span><h2>Lab<span class="ru">Лаборатория</span></h2></div>
+  <p class="lockmsg">Finish mission 1 first.<span class="ru">Сначала заверши миссию 1.</span></p>
+  <div class="body">
+    <p>Press Save under each picture. Your browser turns it into real .bmp, .png and .jpg files and measures them. Each bar shows the file size compared with the .bmp file.
+      <span class="ru">Нажми «Сохранить» под каждой картинкой. Браузер создаст настоящие файлы .bmp, .png и .jpg и измерит их. Полоска показывает размер файла по сравнению с .bmp.</span></p>
+    <p class="small">1 KB = 1024 bytes<span class="ru">1 КБ = 1024 байта</span></p>
+    <div class="pics">
+      <figure class="pic">
+        <canvas id="cA" width="1024" height="600" role="img" aria-label="Picture A, a simple drawing of a house, a sun and grass"></canvas>
+        <figcaption>Picture A: a simple drawing<span class="ru">Картинка A: простой рисунок</span></figcaption>
+        <button class="btn save" data-p="A" type="button">Save Picture A<span class="ru">Сохранить картинку A</span></button>
+        <div id="barsA"></div>
+      </figure>
+      <figure class="pic">
+        <canvas id="cB" width="1024" height="600" role="img" aria-label="Picture B, a colourful detailed picture"></canvas>
+        <figcaption>Picture B: a detailed picture, like a photo<span class="ru">Картинка B: детальная картинка, как фотография</span></figcaption>
+        <button class="btn save" data-p="B" type="button">Save Picture B<span class="ru">Сохранить картинку B</span></button>
+        <label class="up">Optional: use my own photo for Picture B (it stays on your computer)
+          <span class="ru">По желанию: своё фото для картинки B (оно остаётся на твоём компьютере)</span>
+          <input type="file" id="upB" accept="image/*"></label>
+        <div id="barsB"></div>
+      </figure>
+    </div>
+    <div class="quality">
+      <label for="qual">JPG quality: <b class="mono" id="qv">90%</b>
+        <span class="ru">Качество JPG. Подвигай ползунок и смотри на полоски .jpg.</span></label>
+      <input type="range" id="qual" min="30" max="100" value="90">
+    </div>
+    <div id="predResult"></div>
+    <div id="labQuizzes"></div>
+  </div>
+</section>
+
+<!-- MISSION 3 -->
+<section class="mission" id="m3">
+  <div class="mhead"><span class="num">3</span><h2>Formula<span class="ru">Формула</span></h2></div>
+  <p class="lockmsg">Finish mission 2 first.<span class="ru">Сначала заверши миссию 2.</span></p>
+  <div class="body">
+    <p>A .bmp file is not compressed, so you can calculate its size. The picture is 1024 × 600 pixels and every pixel uses 24 bits (24-bit colour). Calculate step by step. A calculator is allowed.
+      <span class="ru">Файл .bmp не сжимается, поэтому его размер можно вычислить. Картинка 1024 × 600 пикселей, каждый пиксель занимает 24 бита (24-битный цвет). Считай по шагам. Калькулятором пользоваться можно.</span></p>
+    <details>
+      <summary>Need a hint? <span class="ru">Нужна подсказка?</span></summary>
+      <p class="small">1 byte = 8 bits, so 24 bits = 3 bytes for every pixel. 1 KB = 1024 bytes.
+        <span class="ru">1 байт = 8 бит, значит 24 бита = 3 байта на каждый пиксель. 1 КБ = 1024 байта.</span></p>
+    </details>
+    <div class="calc" id="calc"></div>
+    <div id="calcReveal"></div>
+    <div id="calcQuiz"></div>
+  </div>
+</section>
+
+<!-- MISSION 4 -->
+<section class="mission" id="m4">
+  <div class="mhead"><span class="num">4</span><h2>Text<span class="ru">Текст</span></h2></div>
+  <p class="lockmsg">Finish mission 3 first.<span class="ru">Сначала заверши миссию 3.</span></p>
+  <div class="body">
+    <p>Pictures are not the only files with different sizes. Type a sentence. It is saved as a .txt file and as an .html file. Tick the boxes to add formatting to the .html file and watch its size.
+      <span class="ru">Не только картинки бывают разного размера. Напиши предложение. Оно сохраняется как файл .txt и как файл .html. Отмечай галочки, чтобы добавить оформление в .html, и следи за размером.</span></p>
+    <label for="tx" class="small">Your sentence<span class="ru">Твоё предложение</span></label>
+    <input class="tx" id="tx" type="text" maxlength="120" value="Hello, Atyrau! I am learning about file sizes.">
+    <div class="checks">
+      <label><input type="checkbox" id="cb-b"> <span>Bold<span class="ru">Жирный</span></span></label>
+      <label><input type="checkbox" id="cb-i"> <span>Italic<span class="ru">Курсив</span></span></label>
+      <label><input type="checkbox" id="cb-u"> <span>Underline<span class="ru">Подчёркнутый</span></span></label>
+      <label><input type="checkbox" id="cb-a"> <span>Link<span class="ru">Ссылка</span></span></label>
+    </div>
+    <div class="files">
+      <div class="file">
+        <div class="fn">Hello.txt</div>
+        <div class="big"><span id="txtBytes">0</span> <small>bytes</small></div>
+        <div class="small"><span id="txtChars">0</span> characters<span class="ru">символов</span></div>
+        <div class="rendered" id="rendered"></div>
+      </div>
+      <div class="file">
+        <div class="fn">Hello.html</div>
+        <div class="big"><span id="htmlBytes">0</span> <small>bytes</small></div>
+        <div class="small">+<span id="diff">0</span> bytes compared with .txt<span class="ru">байт больше, чем в .txt</span></div>
+        <pre id="htmlSrc"></pre>
+      </div>
+    </div>
+    <p class="small" id="utfNote" hidden>Some letters take 2 bytes (for example Russian letters), so bytes can be more than characters.
+      <span class="ru">Некоторые буквы занимают 2 байта (например, русские), поэтому байтов может быть больше, чем символов.</span></p>
+    <div id="q4gate"><p class="gatemsg">Tick at least one box to unlock the question.<span class="ru">Отметь хотя бы одну галочку, чтобы открыть вопрос.</span></p></div>
+    <div id="q4"></div>
+  </div>
+</section>
+
+<!-- MISSION 5 -->
+<section class="mission" id="m5">
+  <div class="mhead"><span class="num">5</span><h2>Send it right<span class="ru">Отправь правильно</span></h2></div>
+  <p class="lockmsg">Finish mission 4 first.<span class="ru">Сначала заверши миссию 4.</span></p>
+  <div class="body">
+    <p>Five real situations. Choose the smartest answer. You can try again if you miss, but you get more points for the first try.
+      <span class="ru">Пять жизненных ситуаций. Выбери самый разумный ответ. Можно пробовать ещё раз, но за первую попытку баллов больше.</span></p>
+    <div id="q5"></div>
+  </div>
+</section>
+
+<!-- MISSION 6 -->
+<section class="mission" id="m6">
+  <div class="mhead"><span class="num">6</span><h2>Case report<span class="ru">Отчёт по делу</span></h2></div>
+  <p class="lockmsg">Finish mission 5 first.<span class="ru">Сначала заверши миссию 5.</span></p>
+  <div class="body">
+    <p>Case closed! Write one sentence: why can the same picture have different file sizes? Then show this screen to your teacher.
+      <span class="ru">Дело раскрыто! Напиши одно предложение: почему одна и та же картинка может иметь разный размер файла? Затем покажи этот экран учителю.</span></p>
+    <label for="why" class="small">My explanation<span class="ru">Моё объяснение</span></label>
+    <textarea class="why" id="why" maxlength="400"></textarea>
+    <div class="report" id="reportBox">
+      <h3 id="rank"></h3>
+      <pre id="reportText"></pre>
+    </div>
+    <div class="actions">
+      <button class="btn" id="copy" type="button">Copy report<span class="ru">Скопировать отчёт</span></button>
+      <button class="btn ghost" id="again" type="button">Play again<span class="ru">Пройти заново</span></button>
+    </div>
+    <p class="small" id="copyMsg" role="status"></p>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s,r){return (r||document).querySelector(s);};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));};
+var W=1024,H=600,MAX=140;
+var FORMATS=['bmp','png','jpg'];
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function wait(ms){return new Promise(function(r){setTimeout(r,reduce?0:ms);});}
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;}
+function bil(o){var n=[document.createTextNode(o.en)];if(o.ru)n.push(el('span','ru',o.ru));return n;}
+function shuffle(arr){var a=arr.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function num(n){return Number(n).toLocaleString('en-US');}
+function fmtSize(b){var kb=b/1024;return (kb>=100?num(Math.round(kb)):kb.toFixed(1))+' KB';}
+function ratioText(x){return x<1.05?'about the same':((x>=10?Math.round(x):x.toFixed(1))+'× smaller');}
+
+/* ---------- language toggle ---------- */
+var ruBtn=$('#ruToggle');
+ruBtn.addEventListener('click',function(){
+  var off=document.body.classList.toggle('no-ru');
+  ruBtn.setAttribute('aria-pressed',off?'false':'true');
+  ruBtn.textContent='Русские подсказки: '+(off?'выкл':'вкл');
+});
+
+/* ---------- score & missions ---------- */
+var score=0,awarded={};
+var scoreEl=$('#score');
+function award(key,pts){
+  if(awarded[key])return;awarded[key]=true;score+=pts;
+  scoreEl.textContent=score;
+  var p=scoreEl.parentElement;p.classList.remove('bump');void p.offsetWidth;p.classList.add('bump');
+  buildReport();
+}
+var secs=[1,2,3,4,5,6].map(function(n){return $('#m'+n);});
+var trk=$$('#tracker li');
+function setState(n,s){trk[n-1].dataset.state=s;}
+trk.forEach(function(t,i){t.dataset.state=i===0?'cur':'todo';});
+secs.forEach(function(s,i){if(i>0)s.classList.add('locked');});
+function complete(n){
+  setState(n,'done');
+  if(n<6){
+    var nx=secs[n];nx.classList.remove('locked');setState(n+1,'cur');
+    var b=el('button','btn next');b.type='button';
+    bil({en:'Next mission',ru:'Следующая миссия'}).forEach(function(x){b.append(x);});
+    b.addEventListener('click',function(){nx.scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'});});
+    $('.body',secs[n-1]).append(b);
+  }
+  if(n===5)buildReport();
+}
+
+/* ---------- quiz helper ---------- */
+function quiz(mount,cfg){
+  var pts=cfg.pts||10;
+  var box=el('div','quiz');
+  var q=el('p','q');bil(cfg.q).forEach(function(x){q.append(x);});box.append(q);
+  var list=el('div','opts');
+  var fb=el('div','fb');fb.setAttribute('role','status');fb.setAttribute('aria-live','polite');
+  var solved=false,tries=0;
+  shuffle(cfg.opts).forEach(function(o){
+    var b=el('button','opt');b.type='button';
+    bil(o).forEach(function(x){b.append(x);});
+    b.addEventListener('click',function(){
+      if(solved)return;tries++;
+      var ok=typeof o.ok==='function'?o.ok():!!o.ok;
+      if(ok){
+        solved=true;b.classList.add('ok');
+        $$('.opt',list).forEach(function(x){x.disabled=true;});
+        var got=tries===1?pts:Math.ceil(pts/2);
+        award(cfg.id,got);
+        fb.className='fb good';fb.textContent='';
+        fb.append(el('strong',null,'+'+got+' '));
+        bil(o.why).forEach(function(x){fb.append(x);});
+        if(cfg.onSolve)cfg.onSolve();
+      }else{
+        b.classList.add('bad');b.disabled=true;
+        fb.className='fb try';fb.textContent='';
+        bil({en:'Not yet. '+o.why.en+' Try again.',ru:'Пока нет. '+o.why.ru+' Попробуй ещё раз.'}).forEach(function(x){fb.append(x);});
+      }
+    });
+    list.append(b);
+  });
+  box.append(list,fb);
+  mount.append(box);
+  return box;
+}
+
+/* ---------- images ---------- */
+var cA=$('#cA'),cB=$('#cB'),thumb=$('#thumbB');
+var ctxA=cA.getContext('2d',{willReadFrequently:true});
+var ctxB=cB.getContext('2d',{willReadFrequently:true});
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function drawA(c){
+  c.fillStyle='#2f9fe0';c.fillRect(0,0,W,H);
+  c.fillStyle='#3cae5a';c.fillRect(0,470,W,130);
+  c.fillStyle='#ffd23f';c.beginPath();c.arc(780,150,90,0,Math.PI*2);c.fill();
+  c.fillStyle='#e4572e';c.fillRect(200,330,220,150);
+  c.fillStyle='#7a3b1d';c.beginPath();c.moveTo(180,335);c.lineTo(310,235);c.lineTo(440,335);c.closePath();c.fill();
+  c.fillStyle='#ffffff';c.fillRect(290,395,50,85);
+}
+function drawB(c){
+  var r=rng(7);
+  var g=c.createLinearGradient(0,0,W,H);
+  g.addColorStop(0,'#1d2b64');g.addColorStop(.5,'#c04a7a');g.addColorStop(1,'#f8b26a');
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  for(var i=0;i<70;i++){
+    var x=r()*W,y=r()*H,rad=30+r()*140,hue=Math.floor(r()*360);
+    var rg=c.createRadialGradient(x,y,0,x,y,rad);
+    rg.addColorStop(0,'hsla('+hue+',80%,60%,.55)');rg.addColorStop(1,'hsla('+hue+',80%,60%,0)');
+    c.fillStyle=rg;c.beginPath();c.arc(x,y,rad,0,Math.PI*2);c.fill();
+  }
+  var img=c.getImageData(0,0,W,H),d=img.data;
+  for(var k=0;k<d.length;k+=4){var n=(r()-.5)*16;d[k]+=n;d[k+1]+=n;d[k+2]+=n;}
+  c.putImageData(img,0,0);
+}
+drawA(ctxA);drawB(ctxB);
+function drawThumb(){thumb.getContext('2d').drawImage(cB,0,0,320,188);}
+drawThumb();
+
+function encodeBMP(canvas){
+  var w=canvas.width,h=canvas.height;
+  var d=canvas.getContext('2d').getImageData(0,0,w,h).data;
+  var row=((24*w+31)>>5)*4,size=54+row*h;
+  var buf=new ArrayBuffer(size),v=new DataView(buf),u=new Uint8Array(buf);
+  u[0]=0x42;u[1]=0x4D;
+  v.setUint32(2,size,true);v.setUint32(10,54,true);v.setUint32(14,40,true);
+  v.setInt32(18,w,true);v.setInt32(22,h,true);v.setUint16(26,1,true);v.setUint16(28,24,true);
+  v.setUint32(34,row*h,true);v.setInt32(38,2835,true);v.setInt32(42,2835,true);
+  var p=54;
+  for(var y=h-1;y>=0;y--){
+    var q=y*w*4;
+    for(var x=0;x<w;x++){u[p++]=d[q+2];u[p++]=d[q+1];u[p++]=d[q];q+=4;}
+    p+=row-w*3;
+  }
+  return new Blob([buf],{type:'image/bmp'});
+}
+function toBlob(c,type,q){return new Promise(function(res){c.toBlob(function(b){res(b);},type,q);});}
+
+/* ---------- lab ---------- */
+var sizes={A:{},B:{}};
+var busy={A:false,B:false};
+var qual=$('#qual');
+function buildBars(p){
+  var box=$('#bars'+p);box.textContent='';
+  FORMATS.forEach(function(f){
+    var row=el('div','row');row.dataset.f=f;
+    var tr=el('div','track');var fill=el('div','fill');fill.dataset.f=f;tr.append(fill);
+    var val=el('span','val');val.append(el('b','sz','—'),el('span','ratio',''));
+    row.append(el('span','ext','.'+f),tr,val);
+    box.append(row);
+  });
+}
+function rowOf(p,f){return $('#bars'+p+' .row[data-f="'+f+'"]');}
+function updateBars(p){
+  var s=sizes[p];
+  var known=FORMATS.map(function(f){return s[f]||0;});
+  var ref=s.bmp||Math.max.apply(null,known.concat([1]));
+  FORMATS.forEach(function(f){
+    if(!s[f])return;
+    var row=rowOf(p,f);
+    $('.fill',row).style.width=Math.max(.8,s[f]/ref*100)+'%';
+    $('.sz',row).textContent=fmtSize(s[f]);
+    $('.ratio',row).textContent=(f!=='bmp'&&s.bmp)?' '+ratioText(s.bmp/s[f]):'';
+  });
+}
+async function encodePic(p,only){
+  if(busy[p])return;busy[p]=true;
+  var c=p==='A'?cA:cB;
+  var jobs=only?[only]:FORMATS;
+  for(var i=0;i<jobs.length;i++){
+    var f=jobs[i];
+    $('.sz',rowOf(p,f)).textContent='saving…';
+    await wait(only?0:500);
+    var blob;
+    try{
+      blob=f==='bmp'?encodeBMP(c):await toBlob(c,f==='png'?'image/png':'image/jpeg',(+qual.value)/100);
+    }catch(e){blob=null;}
+    if(!blob){$('.sz',rowOf(p,f)).textContent='error';continue;}
+    sizes[p][f]=blob.size;
+    updateBars(p);
+  }
+  busy[p]=false;
+  var btn=$('.save[data-p="'+p+'"]');btn.disabled=true;
+  btn.textContent='';bil({en:'Saved',ru:'Сохранено'}).forEach(function(x){btn.append(x);});
+  checkLab();
+}
+$$('.save').forEach(function(b){b.addEventListener('click',function(){encodePic(b.dataset.p);});});
+qual.addEventListener('input',function(){$('#qv').textContent=qual.value+'%';});
+qual.addEventListener('change',function(){['A','B'].forEach(function(p){if(sizes[p].jpg)encodePic(p,'jpg');});});
+
+$('#upB').addEventListener('change',function(e){
+  var f=e.target.files&&e.target.files[0];if(!f)return;
+  try{
+    var rd=new FileReader();
+    rd.onload=function(){
+      var im=new Image();
+      im.onload=function(){
+        var s=Math.max(W/im.width,H/im.height),dw=im.width*s,dh=im.height*s;
+        ctxB.drawImage(im,(W-dw)/2,(H-dh)/2,dw,dh);
+        drawThumb();
+        if(sizes.B.bmp){sizes.B={};buildBars('B');encodePic('B');}
+      };
+      im.src=rd.result;
+    };
+    rd.readAsDataURL(f);
+  }catch(err){}
+});
+
+var labStarted=false;
+var pred=[],predLocked=false,predOk=false;
+function checkLab(){
+  if(labStarted)return;
+  var ready=FORMATS.every(function(f){return sizes.A[f]>0&&sizes.B[f]>0;});
+  if(!ready)return;
+  labStarted=true;
+  showPredResult();
+  buildLabQuizzes();
+}
+function chips(arr){var d=el('div','chips');arr.forEach(function(f){d.append(el('span',null,'.'+f));});return d;}
+function showPredResult(){
+  var actual=FORMATS.slice().sort(function(a,b){return sizes.B[a]-sizes.B[b];});
+  predOk=actual.join()===pred.join();
+  var box=el('div','compare');
+  var mine=el('div','cmp'+(predOk?' win':''));
+  mine.append(el('div',null,'Your prediction (smallest → biggest)'));
+  mine.append(chips(pred));
+  var real=el('div','cmp win');
+  real.append(el('div',null,'Real result for Picture B'));
+  real.append(chips(actual));
+  var v=el('p',null);
+  if(predOk){award('pred',10);bil({en:'You predicted it exactly. +10 points.',ru:'Ты угадал(а) точно. +10 баллов.'}).forEach(function(x){v.append(x);});}
+  else{bil({en:'Not exactly, and that is how detectives learn. Look at the bars to see why.',ru:'Не совсем — так и учатся детективы. Посмотри на полоски и найди причину.'}).forEach(function(x){v.append(x);});}
+  box.append(mine,real,v);
+  $('#predResult').append(box);
+}
+function buildLabQuizzes(){
+  var mount=$('#labQuizzes');var solved=0;
+  function done(){solved++;if(solved===3)complete(2);}
+  quiz(mount,{id:'q2a',q:{en:'Compare the .bmp bars of Picture A and Picture B. What do you notice?',ru:'Сравни полоски .bmp у картинок A и B. Что ты замечаешь?'},
+    opts:[
+      {en:'Both .bmp files have (almost) the same size',ru:'У обоих файлов .bmp почти одинаковый размер',ok:true,why:{en:'A .bmp stores every pixel in the same way, so what is in the picture does not matter. Only width, height and colour depth do.',ru:'В .bmp каждый пиксель хранится одинаково, поэтому содержимое не важно. Важны только ширина, высота и глубина цвета.'}},
+      {en:'The .bmp of Picture A is much smaller',ru:'.bmp картинки A намного меньше',ok:false,why:{en:'Look at the numbers again: they are almost equal.',ru:'Посмотри на числа ещё раз: они почти равны.'}},
+      {en:'The .bmp of Picture B is much bigger',ru:'.bmp картинки B намного больше',ok:false,why:{en:'Look at the numbers again: they are almost equal.',ru:'Посмотри на числа ещё раз: они почти равны.'}}
+    ],onSolve:done});
+  quiz(mount,{id:'q2b',q:{en:'For Picture A (the simple drawing), which file is smaller: .png or .jpg?',ru:'Для картинки A (простой рисунок): какой файл меньше — .png или .jpg?'},
+    opts:[
+      {en:'.png is smaller',ru:'.png меньше',ok:function(){return sizes.A.png<sizes.A.jpg;},why:{en:'Your own bars decide. Drawings with flat colours are easy to pack, and photos with lots of detail suit .jpg better.',ru:'Решают твои полоски. Рисунки с однотонными областями хорошо упаковываются, а фото с множеством деталей лучше подходят для .jpg.'}},
+      {en:'.jpg is smaller',ru:'.jpg меньше',ok:function(){return sizes.A.jpg<sizes.A.png;},why:{en:'Your own bars decide. Drawings with flat colours are easy to pack, and photos with lots of detail suit .jpg better.',ru:'Решают твои полоски. Рисунки с однотонными областями хорошо упаковываются, а фото с множеством деталей лучше подходят для .jpg.'}}
+    ],onSolve:done});
+  quiz(mount,{id:'q2c',q:{en:'Why is the .jpg of Picture B so much smaller than its .bmp?',ru:'Почему .jpg картинки B намного меньше, чем её .bmp?'},
+    opts:[
+      {en:'.jpg compresses the picture, .bmp does not',ru:'.jpg сжимает картинку, а .bmp — нет',ok:true,why:{en:'.jpg throws away tiny details your eyes barely notice, so it needs fewer bits.',ru:'.jpg отбрасывает мелкие детали, которые глаз почти не замечает, поэтому ему нужно меньше бит.'}},
+      {en:'The .jpg picture has fewer pixels',ru:'В .jpg меньше пикселей',ok:false,why:{en:'Both pictures still have 1024 × 600 pixels.',ru:'В обеих картинках по-прежнему 1024 × 600 пикселей.'}},
+      {en:'The .jpg picture is smaller on the screen',ru:'.jpg меньше на экране',ok:false,why:{en:'The picture has the same width and height in both files.',ru:'У картинки одинаковые ширина и высота в обоих файлах.'}}
+    ],onSolve:done});
+}
+
+/* ---------- mission 1 ---------- */
+var slotsEl=$('#slots'),poolEl=$('#pool'),lockBtn=$('#lock');
+var slotLabels=[{en:'Smallest file',ru:'Самый маленький'},{en:'In the middle',ru:'Посередине'},{en:'Biggest file',ru:'Самый большой'}];
+function renderPred(){
+  slotsEl.textContent='';
+  slotLabels.forEach(function(l,i){
+    var s=el('div','slot'+(pred[i]?' filled':''));
+    var lab=el('div','lab');bil(l).forEach(function(x){lab.append(x);});s.append(lab);
+    if(pred[i]){
+      var c=el('button','chip','.'+pred[i]);c.type='button';
+      c.setAttribute('aria-label','Remove .'+pred[i]);c.disabled=predLocked;
+      c.addEventListener('click',function(){pred.splice(i,1);renderPred();});
+      s.append(c);
+    }
+    slotsEl.append(s);
+  });
+  poolEl.textContent='';
+  FORMATS.forEach(function(f){
+    var c=el('button','chip','.'+f);c.type='button';
+    c.disabled=predLocked||pred.indexOf(f)>-1;
+    c.addEventListener('click',function(){pred.push(f);renderPred();});
+    poolEl.append(c);
+  });
+  lockBtn.disabled=predLocked||pred.length<3;
+}
+lockBtn.addEventListener('click',function(){
+  predLocked=true;renderPred();award('m1',10);
+  var m=el('div','msg');
+  bil({en:'Prediction locked. +10 points. You will check it in the lab.',ru:'Прогноз зафиксирован. +10 баллов. Проверишь его в лаборатории.'}).forEach(function(x){m.append(x);});
+  $('#lockMsg').append(m);
+  complete(1);
+});
+
+/* ---------- mission 3 ---------- */
+var steps=[
+  {en:'How many pixels? 1024 × 600 =',ru:'Сколько пикселей? 1024 × 600 =',ans:614400},
+  {en:'How many bits? pixels × 24 =',ru:'Сколько бит? пиксели × 24 =',ans:14745600},
+  {en:'How many bytes? bits ÷ 8 =',ru:'Сколько байт? биты ÷ 8 =',ans:1843200},
+  {en:'How many KB? bytes ÷ 1024 =',ru:'Сколько КБ? байты ÷ 1024 =',ans:1800}
+];
+var calcRows=[];
+function buildCalc(){
+  var host=$('#calc');
+  steps.forEach(function(s,i){
+    var row=el('div','calcrow'+(i>0?' off':''));
+    var lab=el('label');bil(s).forEach(function(x){lab.append(x);});
+    var inp=el('input');inp.type='text';inp.inputMode='numeric';inp.autocomplete='off';inp.disabled=i>0;
+    inp.id='calc'+i;lab.setAttribute('for',inp.id);
+    var btn=el('button','btn');btn.type='button';btn.disabled=i>0;
+    bil({en:'Check',ru:'Проверить'}).forEach(function(x){btn.append(x);});
+    var st=el('div','st');st.setAttribute('role','status');
+    function check(){
+      var v=Number(String(inp.value).replace(/[\s,_\u00a0]/g,''));
+      if(v===s.ans){
+        row.classList.add('done');inp.disabled=true;btn.disabled=true;
+        st.textContent='';st.append(el('strong',null,'✓ +5 '));
+        award('calc'+i,5);
+        if(i+1<steps.length){var n=calcRows[i+1];n.row.classList.remove('off');n.inp.disabled=false;n.btn.disabled=false;n.inp.focus();}
+        else revealCalc();
+      }else{
+        st.textContent='';
+        bil({en:'Not quite. Check the calculation and try again.',ru:'Пока неверно. Проверь вычисление и попробуй ещё раз.'}).forEach(function(x){st.append(x);});
+      }
+    }
+    btn.addEventListener('click',check);
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter')check();});
+    row.append(lab,inp,btn,st);host.append(row);
+    calcRows.push({row:row,inp:inp,btn:btn});
+  });
+}
+function revealCalc(){
+  var bytes=sizes.B.bmp||sizes.A.bmp||0;
+  var extra=bytes-1843200;
+  var m=el('div','msg');
+  bil({
+    en:'Your formula: 1,843,200 bytes = 1,800 KB. The .bmp from your lab: '+num(bytes)+' bytes. The extra '+num(extra)+' bytes are the file header: a small label with the width, height and colour depth.',
+    ru:'Твоя формула: 1 843 200 байт = 1 800 КБ. Файл .bmp из лаборатории: '+num(bytes)+' байт. Лишние '+num(extra)+' байт — это заголовок файла: маленькая «этикетка» с шириной, высотой и глубиной цвета.'
+  }).forEach(function(x){m.append(x);});
+  $('#calcReveal').append(m);
+  quiz($('#calcQuiz'),{id:'q3',q:{en:'You save the same picture as .bmp at 2048 × 1200 (both width and height doubled). The .bmp becomes…',ru:'Ты сохраняешь ту же картинку в .bmp размером 2048 × 1200 (ширина и высота вдвое больше). Файл .bmp станет…'},
+    opts:[
+      {en:'2 times bigger',ru:'в 2 раза больше',ok:false,why:{en:'Doubling both sides changes the number of pixels more than that.',ru:'Если удвоить обе стороны, пикселей станет больше, чем в 2 раза.'}},
+      {en:'4 times bigger',ru:'в 4 раза больше',ok:true,why:{en:'2048 × 1200 is 4 times more pixels than 1024 × 600, and every pixel still uses 24 bits.',ru:'Пикселей в 2048 × 1200 ровно в 4 раза больше, чем в 1024 × 600, а каждый пиксель по-прежнему занимает 24 бита.'}},
+      {en:'8 times bigger',ru:'в 8 раз больше',ok:false,why:{en:'Count the pixels: 2 × 2 = 4.',ru:'Посчитай пиксели: 2 × 2 = 4.'}}
+    ],onSolve:function(){complete(3);}});
+}
+buildCalc();
+
+/* ---------- mission 4 ---------- */
+var tx=$('#tx');
+var cbs={b:$('#cb-b'),i:$('#cb-i'),u:$('#cb-u'),a:$('#cb-a')};
+var enc=window.TextEncoder?new TextEncoder():null;
+function byteLen(s){return enc?enc.encode(s).length:s.length;}
+function htmlSrc(){
+  var inner=tx.value;
+  if(cbs.b.checked)inner='<b>'+inner+'</b>';
+  if(cbs.i.checked)inner='<i>'+inner+'</i>';
+  if(cbs.u.checked)inner='<u>'+inner+'</u>';
+  if(cbs.a.checked)inner='<a href="https://example.com">'+inner+'</a>';
+  return '<html>\n<body>\n<p>'+inner+'</p>\n</body>\n</html>';
+}
+function upd4(){
+  var t=tx.value,h=htmlSrc(),tb=byteLen(t),hb=byteLen(h),chars=Array.from(t).length;
+  $('#txtBytes').textContent=num(tb);$('#htmlBytes').textContent=num(hb);
+  $('#txtChars').textContent=chars;$('#diff').textContent=num(hb-tb);
+  $('#htmlSrc').textContent=h;
+  var r=$('#rendered');r.textContent=t;
+  r.style.fontWeight=cbs.b.checked?'700':'400';
+  r.style.fontStyle=cbs.i.checked?'italic':'normal';
+  r.style.textDecoration=(cbs.u.checked||cbs.a.checked)?'underline':'none';
+  r.style.color=cbs.a.checked?'var(--c-png)':'inherit';
+  $('#utfNote').hidden=!(tb>chars);
+}
+tx.addEventListener('input',upd4);
+var q4box=null;
+Object.keys(cbs).forEach(function(k){cbs[k].addEventListener('change',function(){
+  upd4();
+  if(q4box&&q4box.inert){q4box.inert=false;q4box.classList.remove('gated');var g=$('#q4gate');if(g)g.remove();}
+});});
+q4box=quiz($('#q4'),{id:'q4',q:{en:'Why is the .html file bigger than the .txt file?',ru:'Почему файл .html больше, чем файл .txt?'},
+  opts:[
+    {en:'It stores the text and also the formatting and links',ru:'В нём хранится текст, а ещё оформление и ссылки',ok:true,why:{en:'A .txt file only stores a sequence of characters. An .html file can also store links and formatting like bold or italic, and that extra information takes extra bytes. A file format that can store more has a bigger size.',ru:'В .txt хранится только последовательность символов. В .html можно хранить ещё и ссылки, и оформление (жирный, курсив), а эта информация занимает дополнительные байты. Формат, который хранит больше, даёт больший размер.'}},
+    {en:'The sentence has more letters in the .html file',ru:'В .html в предложении больше букв',ok:false,why:{en:'The sentence is the same in both files. Look at the code box.',ru:'Предложение в обоих файлах одинаковое. Посмотри на блок с кодом.'}},
+    {en:'Because .html is a picture format',ru:'Потому что .html — это формат картинок',ok:false,why:{en:'.html is a text-based format for web pages, not a picture format.',ru:'.html — это текстовый формат для веб-страниц, а не формат картинок.'}}
+  ],onSolve:function(){complete(4);}});
+q4box.inert=true;q4box.classList.add('gated');
+upd4();
+
+/* ---------- mission 5 ---------- */
+var q5done=0;
+function d5(){q5done++;if(q5done===5)complete(5);}
+var q5=$('#q5');
+[
+ {id:'s1',q:{en:'1. You want to send a photo to a friend in a messenger. The internet is slow. Which format is the smart choice?',ru:'1. Ты хочешь отправить фото другу в мессенджере. Интернет медленный. Какой формат разумнее?'},
+  opts:[
+   {en:'.bmp',ru:'',ok:false,why:{en:'.bmp does not compress, so the file is huge.',ru:'.bmp не сжимается, поэтому файл огромный.'}},
+   {en:'.png',ru:'',ok:false,why:{en:'In your lab the .png of the photo was much bigger than the .jpg.',ru:'В лаборатории .png у фото был намного больше, чем .jpg.'}},
+   {en:'.jpg',ru:'',ok:true,why:{en:'.jpg compresses photos, so the file is small and sends fast.',ru:'.jpg сжимает фотографии, поэтому файл небольшой и быстро отправляется.'}}]},
+ {id:'s2',q:{en:'2. You keep notes for yourself: plain text, no bold, no links. Which file is enough and smallest?',ru:'2. Ты пишешь для себя заметки: простой текст, без жирного и ссылок. Какой файл подойдёт и будет самым маленьким?'},
+  opts:[
+   {en:'.txt',ru:'',ok:true,why:{en:'A .txt file stores only characters, so it is the simplest and smallest.',ru:'В .txt хранятся только символы, поэтому он самый простой и маленький.'}},
+   {en:'.html',ru:'',ok:false,why:{en:'.html adds extra tags you do not need here.',ru:'В .html добавляются лишние теги, которые здесь не нужны.'}},
+   {en:'.bmp',ru:'',ok:false,why:{en:'.bmp is a picture format, not a text format.',ru:'.bmp — формат картинок, а не текста.'}}]},
+ {id:'s3',q:{en:'3. Your text needs bold headings and links to other pages. Which format can store that?',ru:'3. В твоём тексте нужны жирные заголовки и ссылки на другие страницы. Какой формат это сохранит?'},
+  opts:[
+   {en:'.txt',ru:'',ok:false,why:{en:'.txt can only store a sequence of characters.',ru:'.txt хранит только последовательность символов.'}},
+   {en:'.html',ru:'',ok:true,why:{en:'.html can store formatting and links, and you saw its bigger size in mission 4.',ru:'.html умеет хранить оформление и ссылки, а его больший размер ты видел в миссии 4.'}},
+   {en:'.mp3',ru:'',ok:false,why:{en:'.mp3 is an audio format.',ru:'.mp3 — аудиоформат.'}}]},
+ {id:'s4',q:{en:'4. A flash drive has 4 MB free. You want to store 3 pictures as .bmp, 1024 × 600, 24-bit (1,800 KB each). Will they fit?',ru:'4. На флешке свободно 4 МБ. Ты хочешь сохранить 3 картинки в .bmp, 1024 × 600, 24-бит (по 1 800 КБ). Поместятся ли они?'},
+  opts:[
+   {en:'Yes, they need about 1.8 MB in total',ru:'Да, им нужно около 1,8 МБ',ok:false,why:{en:'1.8 MB is only one picture.',ru:'1,8 МБ — это только одна картинка.'}},
+   {en:'No, they need about 5.3 MB',ru:'Нет, им нужно около 5,3 МБ',ok:true,why:{en:'3 × 1,800 KB = 5,400 KB, which is about 5.3 MB. That is more than 4 MB. Saving them as .jpg would help.',ru:'3 × 1 800 КБ = 5 400 КБ, это около 5,3 МБ, больше, чем 4 МБ. Если сохранить как .jpg, поместятся.'}},
+   {en:'Yes, they need about 3.6 MB',ru:'Да, им нужно около 3,6 МБ',ok:false,why:{en:'3.6 MB is the size of two pictures, not three.',ru:'3,6 МБ — это две картинки, а не три.'}}]},
+ {id:'s5',q:{en:'5. Which of these is an audio file?',ru:'5. Какой из этих файлов — аудиофайл?'},
+  opts:[
+   {en:'song.mp3',ru:'',ok:true,why:{en:'.mp3 is an audio extension. .wav is another one.',ru:'.mp3 — расширение аудиофайла. Ещё одно — .wav.'}},
+   {en:'clip.avi',ru:'',ok:false,why:{en:'.avi is a video extension.',ru:'.avi — расширение видеофайла.'}},
+   {en:'report.docx',ru:'',ok:false,why:{en:'.docx is an office document.',ru:'.docx — офисный документ.'}}]}
+].forEach(function(c){c.pts=10;c.onSolve=d5;quiz(q5,c);});
+
+/* ---------- report ---------- */
+function rankOf(){
+  var p=score/MAX;
+  if(p>=.85)return {en:'Chief File Detective',ru:'Главный файловый детектив'};
+  if(p>=.6)return {en:'File Detective',ru:'Файловый детектив'};
+  return {en:'Junior Detective',ru:'Младший детектив'};
+}
+function kbList(p){return FORMATS.map(function(f){return sizes[p][f]?('.'+f+' '+fmtSize(sizes[p][f])):('.'+f+' —');}).join(', ');}
+function buildReport(){
+  var name=($('#name').value||'').trim()||'Student';
+  var r=rankOf();
+  var why=($('#why').value||'').trim();
+  $('#rank').textContent=r.en+' / '+r.ru;
+  var lines=[
+    'File Detectives: case report',
+    'Name: '+name,
+    'Points: '+score+' / '+MAX+' ('+r.en+')',
+    'Prediction for Picture B (smallest to biggest): '+(pred.length?pred.map(function(f){return '.'+f;}).join(' < '):'—')+(labStarted?(predOk?' (correct)':' (not exact)'):''),
+    'Picture A: '+kbList('A'),
+    'Picture B: '+kbList('B'),
+    'My explanation: '+(why||'(not written yet)')
+  ];
+  $('#reportText').textContent=lines.join('\n');
+}
+$('#name').addEventListener('input',buildReport);
+$('#why').addEventListener('input',buildReport);
+$('#copy').addEventListener('click',function(){
+  var msg=$('#copyMsg');
+  var text=$('#reportText').textContent;
+  function fail(){msg.textContent='Copy did not work. Take a screenshot instead. / Не получилось скопировать — сделай скриншот.';}
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){msg.textContent='Copied. / Скопировано.';},fail);
+    }else fail();
+  }catch(e){fail();}
+});
+$('#again').addEventListener('click',function(){location.reload();});
+
+/* ---------- init ---------- */
+buildBars('A');buildBars('B');renderPred();buildReport();
+})();
+</script>
+</body>
+</html>
