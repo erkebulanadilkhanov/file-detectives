@@ -208,8 +208,8 @@ summary{cursor:pointer;font-weight:500;min-height:32px}
     <span class="ru">Одна картинка. Три файла. Три разных размера. Твоя задача — выяснить почему.</span></p>
   <div class="who">
     <div>
-      <label for="name">Your name <span class="ru">Твоё имя</span></label>
-      <input id="name" type="text" maxlength="40" autocomplete="off">
+      <label for="name">Name and surname <span class="ru">Имя и фамилия</span></label>
+      <input id="name" type="text" maxlength="60" autocomplete="off" placeholder="Name Surname" style="width:min(100%,20rem)">
     </div>
     <div>
       <label for="cls">Class <span class="ru">Класс</span></label>
@@ -835,7 +835,7 @@ function buildReport(){
   $('#rank').textContent=r.en+' / '+r.ru;
   var lines=[
     'File Detectives: case report',
-    'Name: '+name,
+    'Name and surname: '+name,
     'Class: '+(($('#cls').value||'').trim()||'—'),
     'Points: '+score+' / '+MAX+' ('+r.en+')',
     'Points by mission: M1 '+mp[1]+'/10, M2 '+mp[2]+'/40, M3 '+mp[3]+'/30, M4 '+mp[4]+'/10, M5 '+mp[5]+'/50',
@@ -873,9 +873,14 @@ sendBtn.addEventListener('click',function(){
   var msg=$('#sendMsg');
   var nameEl=$('#name'),clsEl=$('#cls'),whyEl=$('#why');
   var name=(nameEl.value||'').trim(),cls=(clsEl.value||'').trim();
-  if(!name||!cls){
-    msg.textContent='Type your name and class at the top of the page first. / Сначала впиши имя и класс вверху страницы.';
-    (name?clsEl:nameEl).focus();
+  if(name.split(/\s+/).filter(Boolean).length<2){
+    msg.textContent='Type your name and surname at the top of the page first. / Сначала впиши имя и фамилию вверху страницы.';
+    nameEl.focus();
+    return;
+  }
+  if(!cls){
+    msg.textContent='Type your class at the top of the page first. / Сначала впиши класс вверху страницы.';
+    clsEl.focus();
     return;
   }
   if((whyEl.value||'').trim().length<10){
